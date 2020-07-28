@@ -1,0 +1,120 @@
+version: '3.5'
+
+networks:
+  backend:
+    driver: ${NETWORKS_DRIVER}
+
+volumes:
+  redis:
+    name: redis
+    driver: ${VOLUMES_DRIVER}
+  logs:
+    name: logs
+    driver: ${VOLUMES_DRIVER}
+  cache:
+    name: cache
+    driver: ${VOLUMES_DRIVER}
+
+services:
+  nginx:
+    image: app/nginx
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile
+      args:
+        - APP_CODE_PATH=${APP_CODE_PATH_CONTAINER}
+        - APP_GROUP=${APP_GROUP}
+        - APP_GROUP_ID=${APP_GROUP_ID}
+        - APP_USER=${APP_USER}
+        - APP_USER_ID=${APP_USER_ID}
+        - NGINX_VERSION=${NGINX_VERSION}
+        - NGINX_SERVER_PRIMARY_NAME=${NGINX_SERVER_PRIMARY_NAME}
+        - TZ=${TIMEZONE}
+    volumes:
+      - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}
+    ports:
+      - "${NGINX_HTTP_PORT_HOST}:80"
+      - "${NGINX_HTTPS_PORT_HOST}:443"
+    networks:
+      backend:
+        aliases:
+          - ${APP_HOST}
+
+  php-fpm:
+    image: app/php-fpm
+    build:
+      context: .
+      dockerfile: ./php-fpm/Dockerfile
+      args:
+        - APP_CACHE_PATH=${APP_CACHE_PATH_CONTAINER}
+        - APP_CODE_PATH=${APP_CODE_PATH_CONTAINER}
+        - APP_GROUP=${APP_GROUP}
+        - APP_GROUP_ID=${APP_GROUP_ID}
+        - APP_LOG_PATH=${APP_LOG_PATH_CONTAINER}
+        - APP_USER=${APP_USER}
+        - APP_USER_ID=${APP_USER_ID}
+        - TARGET_PHP_VERSION=${PHP_VERSION}
+        - TZ=${TIMEZONE}
+    volumes:
+      - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}
+      - cache:${APP_CACHE_PATH_CONTAINER}
+      - logs:${APP_LOG_PATH_CONTAINER}
+    networks:
+      - backend
+
+  # workspace:
+  #   image: app/workspace
+  #   build:
+  #     context: .
+  #     dockerfile: ./workspace/Dockerfile
+  #     args:
+  #       - APP_CACHE_PATH=${APP_CACHE_PATH_CONTAINER}
+  #       - APP_CODE_PATH=${APP_CODE_PATH_CONTAINER}
+  #       - APP_GROUP=${APP_GROUP}
+  #       - APP_GROUP_ID=${APP_GROUP_ID}
+  #       - APP_LOG_PATH=${APP_LOG_PATH_CONTAINER}
+  #       - APP_USER=${APP_USER}
+  #       - APP_USER_ID=${APP_USER_ID}
+  #       - TARGET_PHP_VERSION=${PHP_VERSION}
+  #       - TZ=${TIMEZONE}
+  #   volumes:
+  #     - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}
+  #     - cache:${APP_CACHE_PATH_CONTAINER}
+  #     - logs:${APP_LOG_PATH_CONTAINER}
+  #   ports:
+  #     - "${WORKSPACE_SSH_PORT_HOST}:22"
+  #   networks:
+  #     - backend
+
+  # php-worker:
+  #   image: app/php-worker
+  #   build:
+  #     context: .
+  #     dockerfile: ./php-worker/Dockerfile
+  #     args:
+  #       - APP_CACHE_PATH=${APP_CACHE_PATH_CONTAINER}
+  #       - APP_CODE_PATH=${APP_CODE_PATH_CONTAINER}
+  #       - APP_GROUP=${APP_GROUP}
+  #       - APP_GROUP_ID=${APP_GROUP_ID}
+  #       - APP_LOG_PATH=${APP_LOG_PATH_CONTAINER}
+  #       - APP_USER=${APP_USER}
+  #       - APP_USER_ID=${APP_USER_ID}
+  #       - PHP_WORKER_COMMAND_ARGS=${PHP_WORKER_COMMAND_ARGS}
+  #       - PHP_WORKER_PROCESS_NUMBER=${PHP_WORKER_PROCESS_NUMBER}
+  #       - TARGET_PHP_VERSION=${PHP_VERSION}
+  #       - TZ=${TIMEZONE}
+  #   volumes:
+  #     - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}
+  #     - cache:${APP_CACHE_PATH_CONTAINER}
+  #     - logs:${APP_LOG_PATH_CONTAINER}
+  #   networks:
+  #     - backend
+
+  redis:
+    image: redis:${REDIS_VERSION}-alpine
+    ports:
+      - "${REDIS_PORT_HOST}:6379"
+    volumes:
+      - redis:/data
+    networks:
+      - backend
